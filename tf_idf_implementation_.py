@@ -94,6 +94,85 @@ tfidf_matrix = compute_tfidf(tf_list, idf, vocab)
 print("Total Reviews:", len(tfidf_matrix))     # should be 10,000
 print("Vocabulary Size:", len(vocab))
 
+
+import re
+from collections import Counter
+import math
+
+def preprocess(text):
+  text = text.lower()
+  text = re.sub(r'[^a-zA-Z\u0980-\u09FF\s]', '', text)
+  tokens = text.split()
+  return tokens
+
+def compute_query_tf_vector(query_tokens):
+    word_count = Counter(query_tokens)
+    total_words = len(query_tokens)
+    tf = {}
+    if total_words == 0:
+        return tf # Handle empty query
+    for word, count in word_count.items():
+        tf[word] = count / total_words
+    return tf
+
+def compute_query_tfidf_vector(query_tf, idf, vocab):
+    query_tfidf = {}
+    for word, tf_val in query_tf.items():
+        if word in vocab and word in idf: # Only consider words present in the corpus vocabulary
+            query_tfidf[vocab[word]] = tf_val * idf[word]
+    return query_tfidf
+
+def dot_product(vec1, vec2):
+    dot_prod = 0
+    # Iterate over the smaller vector for efficiency
+    if len(vec1) > len(vec2):
+        vec1, vec2 = vec2, vec1
+    for idx, val in vec1.items():
+        if idx in vec2:
+            dot_prod += val * vec2[idx]
+    return dot_prod
+
+def magnitude(vec):
+    mag = 0
+    for val in vec.values():
+        mag += val ** 2
+    return math.sqrt(mag)
+
+def cosine_similarity(vec1, vec2):
+    num = dot_product(vec1, vec2)
+    den_vec1 = magnitude(vec1)
+    den_vec2 = magnitude(vec2)
+
+    if den_vec1 == 0 or den_vec2 == 0:
+        return 0.0 
+    return num / (den_vec1 * den_vec2)
+
+
+
+query = "great product"
+
+
+processed_query = preprocess(query)
+
+query_tf = compute_query_tf_vector(processed_query)
+query_tfidf_vec = compute_query_tfidf_vector(query_tf, idf, vocab)
+
+
+similarities = []
+for i, doc_tfidf_vec in enumerate(tfidf_matrix):
+    sim = cosine_similarity(query_tfidf_vec, doc_tfidf_vec)
+    similarities.append((sim, i))
+
+
+similarities.sort(key=lambda x: x[0], reverse=True)
+top_5_reviews_indices = [idx for sim, idx in similarities[:5]]
+
+print(f"Top 5 most relevant reviews for query: '{query}'\n")
+for i, idx in enumerate(top_5_reviews_indices):
+    original_review = reviews[idx]
+    similarity_score = similarities[i][0]
+    print(f"Rank {i+1} (Similarity: {similarity_score:.4f}):\n{original_review}\n---\n")
+
 print("Sample TF-IDF vector (doc 0):")
 print(tfidf_matrix[0])
 
