@@ -254,3 +254,36 @@ if average_tfidf_scores:
 else:
     print("No words found in 'Electronics' category to calculate average TF-IDF scores.")
 
+
+import numpy as np
+
+def compute_bm25(docs, query_tokens, k1=1.5, b=0.75):
+    N = len(docs)
+    avgdl = np.mean([len(doc) for doc in docs])
+    doc_freqs = Counter()
+    for doc in docs:
+        doc_freqs.update(set(doc))
+    
+    scores = []
+    for doc in docs:
+        score = 0.0
+        doc_len = len(doc)
+        tf_counts = Counter(doc)
+        for token in query_tokens:
+            if token in doc_freqs:
+                # IDF calculation for BM25
+                df = doc_freqs[token]
+                idf = math.log((N - df + 0.5) / (df + 0.5) + 1.0)
+                # TF component with saturation and length normalization
+                f = tf_counts[token]
+                tf_comp = (f * (k1 + 1)) / (f + k1 * (1 - b + b * (doc_len / avgdl)))
+                score += idf * tf_comp
+        scores.append(score)
+    return scores
+
+bm25_scores = compute_bm25(docs, processed_query)
+bm25_ranking = sorted(enumerate(bm25_scores), key=lambda x: x[1], reverse=True)[:5]
+
+print("Top 5 Reviews (BM25 Weighting):")
+for idx, score in bm25_ranking:
+    print(f"Score {score:.4f}: {reviews[idx]}")
