@@ -91,7 +91,7 @@ def compute_tfidf(tf_list, idf, vocab):
 
 tfidf_matrix = compute_tfidf(tf_list, idf, vocab)
 
-print("Total Reviews:", len(tfidf_matrix))     # should be 10,000
+print("Total Reviews:", len(tfidf_matrix))     
 print("Vocabulary Size:", len(vocab))
 
 
@@ -118,7 +118,7 @@ def compute_query_tf_vector(query_tokens):
 def compute_query_tfidf_vector(query_tf, idf, vocab):
     query_tfidf = {}
     for word, tf_val in query_tf.items():
-        if word in vocab and word in idf: # Only consider words present in the corpus vocabulary
+        if word in vocab and word in idf: 
             query_tfidf[vocab[word]] = tf_val * idf[word]
     return query_tfidf
 
@@ -175,4 +175,82 @@ for i, idx in enumerate(top_5_reviews_indices):
 
 print("Sample TF-IDF vector (doc 0):")
 print(tfidf_matrix[0])
+
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
+
+
+corpus_for_sklearn = [" ".join(doc) for doc in docs]
+
+
+sklearn_vectorizer = TfidfVectorizer(vocabulary={word: idx for word, idx in vocab.items()})
+sklearn_tfidf_matrix = sklearn_vectorizer.fit_transform(corpus_for_sklearn)
+
+
+sklearn_vocab = sklearn_vectorizer.vocabulary_
+
+custom_tfidf_sparse_matrix = np.zeros(sklearn_tfidf_matrix.shape)
+
+for doc_idx, doc_vec_dict in enumerate(tfidf_matrix):
+    for word_idx, tfidf_val in doc_vec_dict.items():
+
+        custom_tfidf_sparse_matrix[doc_idx, word_idx] = tfidf_val
+
+l2_diff = np.linalg.norm(custom_tfidf_sparse_matrix - sklearn_tfidf_matrix.toarray(), axis=1)
+avg_l2_diff = np.mean(l2_diff)
+
+print(f"Average L2 difference between custom TF-IDF and sklearn's TF-IDF: {avg_l2_diff:.4f}")
+
+from collections import defaultdict
+
+
+electronics_reviews_indices = df[df['category'] == 'Electronics'].index.tolist()
+electronics_docs = [docs[i] for i in electronics_reviews_indices]
+electronics_tf_list = [tf_list[i] for i in electronics_reviews_indices]
+
+
+electronics_tfidf_matrix = compute_tfidf(electronics_tf_list, idf, vocab)
+
+word_tfidf_sums = defaultdict(float)
+word_counts_in_electronics = defaultdict(int)
+
+for doc_tfidf_vec in electronics_tfidf_matrix:
+    for vocab_idx, tfidf_val in doc_tfidf_vec.items():
+ 
+        word = next(key for key, value in vocab.items() if value == vocab_idx)
+        word_tfidf_sums[word] += tfidf_val
+        word_counts_in_electronics[word] += 1
+
+average_tfidf_scores = {}
+for word, tfidf_sum in word_tfidf_sums.items():
+    if word_counts_in_electronics[word] > 0:
+        average_tfidf_scores[word] = tfidf_sum / word_counts_in_electronics[word]
+
+if average_tfidf_scores:
+    highest_avg_tfidf_word = max(average_tfidf_scores, key=average_tfidf_scores.get)
+    highest_avg_tfidf_score = average_tfidf_scores[highest_avg_tfidf_word]
+
+    print(f"The single word with the highest average TF-IDF score in the 'Electronics' category is: '{highest_avg_tfidf_word}' (Average TF-IDF: {highest_avg_tfidf_score:.4f})\n")
+
+    
+    tf_score = 0
+    doc_freq_count = 0
+    total_docs_in_electronics = len(electronics_docs)
+    for doc_tf in electronics_tf_list:
+        if highest_avg_tfidf_word in doc_tf:
+            tf_score += doc_tf[highest_avg_tfidf_word]
+            doc_freq_count += 1
+
+    
+    print("Explanation:")
+    print(f"  The word '{highest_avg_tfidf_word}' has a high TF-IDF score for the following reasons:")
+    print(f"  - Term Frequency (TF): It appears frequently within specific 'Electronics' reviews (contributing to a higher average TF).")
+    if highest_avg_tfidf_word in idf:
+        print(f"  - Inverse Document Frequency (IDF): Its IDF value is {idf[highest_avg_tfidf_word]:.4f}. A higher IDF suggests that the word is relatively rare across the entire corpus of reviews, making it more distinctive to the documents where it does appear.")
+        print("  Therefore, this word is likely a good indicator of topics or specific features discussed prominently in 'Electronics' reviews, but not universally across all product categories.")
+    else:
+        print(f"  - Inverse Document Frequency (IDF): The word '{highest_avg_tfidf_word}' was not found in the global IDF dictionary, which might indicate it's very specific to a small subset of documents or a new word.")
+else:
+    print("No words found in 'Electronics' category to calculate average TF-IDF scores.")
 
