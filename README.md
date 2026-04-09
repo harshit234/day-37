@@ -16,8 +16,8 @@ This repository contains solutions for day 37 NLP assignment covering:
 ```
 week07/
   monday/
-    assignment.ipynb
-    tfidf.py
+    Question 2.ipynb
+    tfidf implementation.py
     README.md
 ```
 
